@@ -2,14 +2,19 @@ name = "iori-nav"
 compatibility_date = "2025-12-04"
 pages_build_output_dir = "public"
 
+# =================================================================
+#  LOCAL DEVELOPMENT CONFIGURATION
+#  - Fill in your actual IDs here to run `wrangler dev`.
+#  - IMPORTANT: Do not commit your personal IDs to version control.
+# =================================================================
 [[d1_databases]]
 binding = "NAV_DB"
 database_name = "book"
-database_id = ""
+database_id = "PASTE_YOUR_D1_DATABASE_ID_HERE"
 
 [[kv_namespaces]]
 binding = "NAV_AUTH"
-id = ""
+id = "PASTE_YOUR_KV_NAMESPACE_ID_HERE"
 
 [vars]
 ICON_API = "https://icon.iori.nyc.mn/?domain="
@@ -17,3 +22,18 @@ ENABLE_PUBLIC_SUBMISSION = false
 SITE_NAME = "IORI"
 SITE_DESCRIPTION = "从效率工具到灵感站点,我们亲自挑选、亲手标注,只为帮助你更快找到值得信赖的优质资源。"
 FOOTER_TEXT = "曾梦想仗剑走天涯"
+
+
+# =================================================================
+#  CLOUDFLARE PAGES DEPLOYMENT CONFIGURATION
+#  - This section is used for the "Deploy to Cloudflare" button.
+# =================================================================
+[env.pages]
+
+[[env.pages.d1_databases]]
+binding = "NAV_DB"
+database_name = "book"
+database_id = "" # This is correct for Pages deployment
+
+[[env.pages.kv_namespaces]]
+binding = "NAV_AUTH" # The `id` field is intentionally omitted for Pages deployment
