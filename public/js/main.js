@@ -368,109 +368,249 @@ document.addEventListener('DOMContentLoaded', function() {
 
     e.preventDefault();
     const href = link.getAttribute('href');
-    const url = new URL(href, window.location.origin);
+    const catalogId = link.getAttribute('data-id');
+    const catalogName = link.textContent.trim();
     
-    // Visual feedback (optional opacity)
+    // Visual feedback
     const sitesGrid = document.getElementById('sitesGrid');
-    if (sitesGrid) sitesGrid.style.opacity = '0.5';
+    if (!sitesGrid) return;
+
+    // Transition Out
+    sitesGrid.style.transition = 'opacity 0.15s ease-out';
+    sitesGrid.style.opacity = '0';
 
     try {
-        const res = await fetch(href);
-        if (!res.ok) throw new Error('Network response was not ok');
-        const text = await res.text();
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(text, 'text/html');
-
-        // 1. Update Grid
-        const newGrid = doc.getElementById('sitesGrid');
-        if (sitesGrid && newGrid) {
-            sitesGrid.innerHTML = newGrid.innerHTML;
-            sitesGrid.style.opacity = '1';
+        // Construct API URL
+        let apiUrl = '/api/config?pageSize=10000';
+        if (catalogId) {
+            apiUrl += `&catalogId=${catalogId}`;
         }
-
-        // 2. Update Horizontal Menu (In-Place to preserve state)
-        const currentNav = document.getElementById('horizontalCategoryNav');
-        const newNav = doc.getElementById('horizontalCategoryNav');
-        const dropdown = document.getElementById('horizontalMoreDropdown');
         
-        if (currentNav && newNav) {
-            // Extract class strings from the new server-rendered HTML
-            // We find the link that matches the requested href to get 'active' classes
-            // And a link that doesn't match to get 'inactive' classes.
-            
-            const newLinks = Array.from(newNav.querySelectorAll('a'));
-            let activeClass = '';
-            let inactiveClass = '';
-            
-            // Helper to get relative href
-            const getHref = (el) => el.getAttribute('href');
-            
-            const activeLinkEl = newLinks.find(el => getHref(el) === href);
-            const inactiveLinkEl = newLinks.find(el => getHref(el) !== href);
-            
-            if (activeLinkEl) activeClass = activeLinkEl.className;
-            if (inactiveLinkEl) inactiveClass = inactiveLinkEl.className;
-            
-            // If we couldn't find them (e.g. only 1 category?), fallback or skip
-            if (activeClass && inactiveClass) {
-                // Update Live DOM
-                // We need to target both visible links and dropdown links
-                const allCurrentLinks = [
-                    ...Array.from(currentNav.querySelectorAll('a')),
-                    ...(dropdown ? Array.from(dropdown.querySelectorAll('a')) : [])
-                ];
-                
-                allCurrentLinks.forEach(link => {
-                    const isTarget = getHref(link) === href;
-                    const newOriginalClass = isTarget ? activeClass : inactiveClass;
-                    
-                    // Always update the stored original class (for when items move between nav and dropdown)
-                    link.dataset.originalClass = newOriginalClass;
-                    
-                    // Update className for immediate effect if it is in the nav bar
-                    // If it is in the dropdown, checkOverflow will handle it
-                    if (currentNav.contains(link)) {
-                        link.className = newOriginalClass;
-                    }
-                });
-                
-                // Re-calculate overflow to ensure dropdown items get correct styles
-                checkOverflow();
-            }
-        }
+        const res = await fetch(apiUrl);
+        if (!res.ok) throw new Error('Network response was not ok');
+        const data = await res.json();
+        
+        if (data.code !== 200) throw new Error(data.message || 'API Error');
+        
+        // Wait for fade out
+        await new Promise(resolve => setTimeout(resolve, 150));
 
-        // 3. Update Sidebar Active State (if exists)
-        // Find sidebar container. It's usually the second div inside #sidebar .p-6?
-        // Let's look for the container with class 'space-y-1'
-        const sidebar = document.getElementById('sidebar');
-        if (sidebar) {
-            const currentLinks = sidebar.querySelectorAll('a[href^="?catalog="]');
-            const newLinks = doc.querySelectorAll('#sidebar a[href^="?catalog="]');
-            
-            // Simple approach: Replace the parent container of links?
-            // The structure is `div.space-y-1`.
-            const currentSpaceY1 = sidebar.querySelector('.space-y-1');
-            const newSpaceY1 = doc.querySelector('#sidebar .space-y-1');
-            if (currentSpaceY1 && newSpaceY1) {
-                currentSpaceY1.innerHTML = newSpaceY1.innerHTML;
-            }
-        }
+        // Reset grid opacity (cards will animate in)
+        sitesGrid.style.transition = 'none';
+        sitesGrid.style.opacity = '1';
 
-        // 4. Update Heading
-        const currentHeading = document.querySelector('[data-role="list-heading"]');
-        const newHeading = doc.querySelector('[data-role="list-heading"]');
-        if (currentHeading && newHeading) {
-            currentHeading.textContent = newHeading.textContent;
-            currentHeading.dataset.default = newHeading.dataset.default;
-            currentHeading.dataset.active = newHeading.dataset.active;
-        }
+        // Render Sites
+        renderSites(data.data);
 
-        // 5. Update History
-        history.pushState({}, '', href);
+        // Update Heading
+        updateHeading(null, catalogId ? catalogName : null, data.data.length);
+
+        // Update Active State in Navigation
+        updateNavigationState(href);
 
     } catch (err) {
         console.error('Navigation failed', err);
-        window.location.href = href; // Fallback
+        window.location.href = href;
     }
   });
+
+  function renderSites(sites) {
+      const sitesGrid = document.getElementById('sitesGrid');
+      if (!sitesGrid) return;
+      
+      // Determine current layout settings from DOM
+      const isFrosted = document.body.innerHTML.includes('frosted-glass-effect'); 
+      const previousContent = sitesGrid.innerHTML;
+      const hadFrosted = previousContent.includes('frosted-glass-effect');
+      
+      // Check grid cols
+      const isFiveCols = sitesGrid.className.includes('xl:grid-cols-5');
+      
+      // Check hidden elements
+      const firstCard = sitesGrid.querySelector('.site-card');
+      const hideDesc = firstCard && !firstCard.querySelector('p.line-clamp-2');
+      const hideLinks = firstCard && !firstCard.querySelector('.copy-btn');
+      const hideCategory = firstCard && !firstCard.querySelector('.bg-secondary-100');
+      
+      sitesGrid.innerHTML = '';
+      
+      if (sites.length === 0) {
+          sitesGrid.innerHTML = '<div class="col-span-full text-center text-gray-500 py-10">本分类下暂无书签</div>';
+          return;
+      }
+
+      sites.forEach((site, index) => {
+        // Safe values
+        const safeName = escapeHTML(site.name || '未命名');
+        const safeUrl = normalizeUrl(site.url);
+        const safeDesc = escapeHTML(site.desc || '暂无描述');
+        const safeCatalog = escapeHTML(site.catelog || '未分类');
+        const cardInitial = (safeName.charAt(0) || '站').toUpperCase();
+        
+        // Logo
+        let logoHtml = '';
+        if (site.logo) {
+             logoHtml = `<img src="${escapeHTML(site.logo)}" alt="${safeName}" class="w-10 h-10 rounded-lg object-cover bg-gray-100">`;
+        } else {
+             logoHtml = `<div class="w-10 h-10 rounded-lg bg-primary-600 flex items-center justify-center text-white font-semibold text-lg shadow-inner">${cardInitial}</div>`;
+        }
+        
+        // Conditional Parts
+        const descHtml = hideDesc ? '' : `<p class="mt-2 text-sm text-gray-600 leading-relaxed line-clamp-2" title="${safeDesc}">${safeDesc}</p>`;
+        
+        const hasValidUrl = !!safeUrl;
+        const linksHtml = hideLinks ? '' : `
+          <div class="mt-3 flex items-center justify-between">
+            <span class="text-xs text-primary-600 truncate max-w-[140px]" title="${safeUrl}">${safeUrl || '未提供链接'}</span>
+            <button class="copy-btn relative flex items-center px-2 py-1 ${hasValidUrl ? 'bg-accent-100 text-accent-700 hover:bg-accent-200' : 'bg-gray-200 text-gray-400 cursor-not-allowed'} rounded-full text-xs font-medium transition-colors" data-url="${safeUrl}" ${hasValidUrl ? '' : 'disabled'}>
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 ${isFiveCols ? '' : 'mr-1'}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+              </svg>
+              ${isFiveCols ? '' : '复制'}
+              <span class="copy-success hidden absolute -top-8 right-0 bg-accent-500 text-white text-xs px-2 py-1 rounded shadow-md">已复制!</span>
+            </button>
+          </div>`;
+          
+        const categoryHtml = hideCategory ? '' : `
+                <span class="inline-flex items-center px-2 py-0.5 mt-1 rounded-full text-xs font-medium bg-secondary-100 text-primary-700">
+                  ${safeCatalog}
+                </span>`;
+        
+        // Classes
+        const frostedClass = hadFrosted ? 'frosted-glass-effect' : '';
+        const baseCardClass = hadFrosted
+            ? 'site-card group rounded-xl overflow-hidden transition-all' 
+            : 'site-card group bg-white border border-primary-100/60 rounded-xl shadow-sm overflow-hidden';
+        
+        const card = document.createElement('div');
+        card.className = `${baseCardClass} ${frostedClass} card-anim-enter`;
+        // Limit stagger to first 20 items to avoid long wait
+        const delay = Math.min(index, 20) * 30; 
+        card.style.animationDelay = `${delay}ms`;
+        
+        card.setAttribute('data-name', safeName);
+        card.setAttribute('data-url', safeUrl);
+        card.setAttribute('data-catalog', safeCatalog);
+        
+        card.innerHTML = `
+        <div class="p-5">
+          <a href="${safeUrl}" ${hasValidUrl ? 'target="_blank" rel="noopener noreferrer"' : ''} class="block">
+            <div class="flex items-start">
+              <div class="site-icon flex-shrink-0 mr-4 transition-all duration-300">
+                ${logoHtml}
+              </div>
+              <div class="flex-1 min-w-0">
+                <h3 class="site-title text-base font-medium text-gray-900 truncate transition-all duration-300 origin-left" title="${safeName}">${safeName}</h3>
+                ${categoryHtml}
+              </div>
+            </div>
+            ${descHtml}
+          </a>
+          ${linksHtml}
+        </div>
+        `;
+        
+        sitesGrid.appendChild(card);
+        
+        // Re-bind copy button event
+        const copyBtn = card.querySelector('.copy-btn');
+        if (copyBtn) {
+            copyBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                const url = this.getAttribute('data-url');
+                if (!url) return;
+                
+                navigator.clipboard.writeText(url).then(() => {
+                    showCopySuccess(this);
+                }).catch(() => {
+                    // Fallback
+                    const textarea = document.createElement('textarea');
+                    textarea.value = url;
+                    textarea.style.position = 'fixed';
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    try { document.execCommand('copy'); showCopySuccess(this); } catch (e) {}
+                    document.body.removeChild(textarea);
+                });
+            });
+        }
+      });
+  }
+  
+  function updateNavigationState(href) {
+        // Update Horizontal Menu
+        const currentNav = document.getElementById('horizontalCategoryNav');
+        const dropdown = document.getElementById('horizontalMoreDropdown');
+        
+        if (currentNav) {
+            const allLinks = [
+                ...Array.from(currentNav.querySelectorAll('a')),
+                ...(dropdown ? Array.from(dropdown.querySelectorAll('a')) : [])
+            ];
+            
+            const getHref = (el) => el.getAttribute('href');
+            let oldActive = null;
+            let newActive = null;
+
+            // Find old and new active items
+            allLinks.forEach(link => {
+                if (getHref(link) === href) {
+                    newActive = link;
+                } else if (link.classList.contains('font-semibold') && (link.classList.contains('bg-primary-600') || link.classList.contains('text-primary-700'))) {
+                    // This heuristic detects the currently active item based on classes
+                    oldActive = link;
+                }
+            });
+
+            if (newActive && oldActive && newActive !== oldActive) {
+                // Ensure originalClass is set
+                if (!oldActive.dataset.originalClass) oldActive.dataset.originalClass = oldActive.className;
+                if (!newActive.dataset.originalClass) newActive.dataset.originalClass = newActive.className;
+
+                // Swap the "Bar State" classes stored in originalClass
+                const activeStateClass = oldActive.dataset.originalClass;
+                const inactiveStateClass = newActive.dataset.originalClass;
+
+                oldActive.dataset.originalClass = inactiveStateClass;
+                newActive.dataset.originalClass = activeStateClass;
+                
+                // Apply immediately so visual state updates, and checkOverflow sees correct width/styles
+                oldActive.className = inactiveStateClass;
+                newActive.className = activeStateClass;
+            }
+            
+             // Re-check overflow to re-distribute items and apply Dropdown/Bar styles based on new Active state
+             if (typeof checkOverflow === 'function') checkOverflow();
+        }
+        
+        // Update Sidebar
+        const sidebar = document.getElementById('sidebar');
+        if (sidebar) {
+            const links = sidebar.querySelectorAll('a[href^="?catalog="]');
+            links.forEach(link => {
+                 if (link.getAttribute('href') === href) {
+                     link.className = 'flex items-center px-3 py-2 rounded-lg bg-secondary-100 text-primary-700 w-full';
+                     const svg = link.querySelector('svg');
+                     if(svg) svg.className = 'h-5 w-5 mr-2 text-primary-600';
+                 } else {
+                     link.className = 'flex items-center px-3 py-2 rounded-lg hover:bg-gray-100 w-full';
+                     const svg = link.querySelector('svg');
+                     if(svg) svg.className = 'h-5 w-5 mr-2 text-gray-400';
+                 }
+            });
+        }
+  }
+
+  // Helper helpers
+  function escapeHTML(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+  
+  function normalizeUrl(url) {
+      if (!url) return '';
+      if (url.startsWith('http')) return url;
+      return 'https://' + url;
+  }
 });

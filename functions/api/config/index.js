@@ -6,6 +6,7 @@ export async function onRequestGet(context) {
   const url = new URL(request.url);
   
   const catalog = url.searchParams.get('catalog');
+  const catalogId = url.searchParams.get('catalogId');
   const page = parseInt(url.searchParams.get('page') || '1', 10);
   const pageSize = parseInt(url.searchParams.get('pageSize') || '10', 10);
   const keyword = url.searchParams.get('keyword');
@@ -19,7 +20,14 @@ export async function onRequestGet(context) {
     let queryBindParams = [pageSize, offset];
     let countQueryParams = [];
 
-    if (catalog) {
+    if (catalogId) {
+      query = `SELECT s.*,c.catelog FROM sites s
+               INNER JOIN category c ON s.catelog_id = c.id
+               WHERE s.catelog_id = ? ORDER BY s.sort_order ASC, s.create_time DESC LIMIT ? OFFSET ?`;
+      countQuery = `SELECT COUNT(*) as total FROM sites WHERE catelog_id = ?`;
+      queryBindParams = [catalogId, pageSize, offset];
+      countQueryParams = [catalogId];
+    } else if (catalog) {
       console.log('catalog', catalog);
       query = `SELECT s.*,c.catelog FROM sites s
                INNER JOIN category c ON s.catelog_id = c.id

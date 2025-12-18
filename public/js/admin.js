@@ -1388,10 +1388,16 @@ document.addEventListener('DOMContentLoaded', () => {
   const hideCategorySwitch = document.getElementById('hideCategorySwitch');
   const hideTitleSwitch = document.getElementById('hideTitleSwitch');
   const hideSubtitleSwitch = document.getElementById('hideSubtitleSwitch');
+  const frostedGlassSwitch = document.getElementById('frostedGlassSwitch');
+  const frostedGlassIntensityRange = document.getElementById('frostedGlassIntensity');
+  const frostedGlassIntensityValue = document.getElementById('frostedGlassIntensityValue');
   const gridColsRadios = document.getElementsByName('gridCols');
   const menuLayoutRadios = document.getElementsByName('menuLayout');
   const customWallpaperInput = document.getElementById('customWallpaperInput');
   const randomWallpaperSwitch = document.getElementById('randomWallpaperSwitch');
+  const bgBlurSwitch = document.getElementById('bgBlurSwitch');
+  const bgBlurIntensityRange = document.getElementById('bgBlurIntensity');
+  const bgBlurIntensityValue = document.getElementById('bgBlurIntensityValue');
   const bingCountrySelect = document.getElementById('bingCountry');
   const bingWallpapersDiv = document.getElementById('bingWallpapers');
 
@@ -1424,10 +1430,14 @@ document.addEventListener('DOMContentLoaded', () => {
     layout_hide_category: false,
     layout_hide_title: false,
     layout_hide_subtitle: false,
+    layout_enable_frosted_glass: false,
+    layout_frosted_glass_intensity: '15',
     layout_grid_cols: '4',
     layout_custom_wallpaper: '',
-    layout_menu_layout: 'vertical',
+    layout_menu_layout: 'horizontal',
     layout_random_wallpaper: false,
+    layout_enable_bg_blur: false,
+    layout_bg_blur_intensity: '0',
     bing_country: ''
   };
 
@@ -1580,6 +1590,8 @@ document.addEventListener('DOMContentLoaded', () => {
     currentSettings.layout_hide_subtitle = hideSubtitleSwitch.checked;
     currentSettings.layout_custom_wallpaper = customWallpaperInput.value.trim();
     currentSettings.layout_random_wallpaper = randomWallpaperSwitch.checked;
+    currentSettings.layout_enable_bg_blur = bgBlurSwitch.checked;
+    currentSettings.layout_bg_blur_intensity = bgBlurIntensityRange.value;
     currentSettings.bing_country = bingCountrySelect.value;
     
     // Get Grid Cols
@@ -1597,9 +1609,50 @@ document.addEventListener('DOMContentLoaded', () => {
             break;
         }
     }
+    
+    currentSettings.layout_enable_frosted_glass = frostedGlassSwitch.checked;
+    currentSettings.layout_frosted_glass_intensity = frostedGlassIntensityRange.value;
 
     saveSettings();
   });
+
+  if (frostedGlassSwitch) {
+      frostedGlassSwitch.addEventListener('change', () => {
+          const intensityContainer = document.getElementById('frostedGlassIntensityContainer');
+          if (frostedGlassSwitch.checked) {
+              intensityContainer.classList.remove('opacity-50', 'pointer-events-none');
+          } else {
+              intensityContainer.classList.add('opacity-50', 'pointer-events-none');
+          }
+      });
+  }
+
+  if (frostedGlassIntensityRange) {
+      frostedGlassIntensityRange.addEventListener('input', () => {
+          if (frostedGlassIntensityValue) {
+              frostedGlassIntensityValue.textContent = frostedGlassIntensityRange.value;
+          }
+      });
+  }
+
+  if (bgBlurSwitch) {
+      bgBlurSwitch.addEventListener('change', () => {
+          const container = document.getElementById('bgBlurIntensityContainer');
+          if (bgBlurSwitch.checked) {
+              container.classList.remove('opacity-50', 'pointer-events-none');
+          } else {
+              container.classList.add('opacity-50', 'pointer-events-none');
+          }
+      });
+  }
+
+  if (bgBlurIntensityRange) {
+      bgBlurIntensityRange.addEventListener('input', () => {
+          if (bgBlurIntensityValue) {
+              bgBlurIntensityValue.textContent = bgBlurIntensityRange.value;
+          }
+      });
+  }
 
   batchCompleteBtn.addEventListener('click', handleBulkGenerate);
   stopBulkBtn.addEventListener('click', () => {
@@ -1629,10 +1682,14 @@ document.addEventListener('DOMContentLoaded', () => {
             if (serverSettings.layout_hide_category !== undefined) currentSettings.layout_hide_category = serverSettings.layout_hide_category === 'true';
             if (serverSettings.layout_hide_title !== undefined) currentSettings.layout_hide_title = serverSettings.layout_hide_title === 'true';
             if (serverSettings.layout_hide_subtitle !== undefined) currentSettings.layout_hide_subtitle = serverSettings.layout_hide_subtitle === 'true';
+            if (serverSettings.layout_enable_frosted_glass !== undefined) currentSettings.layout_enable_frosted_glass = serverSettings.layout_enable_frosted_glass === 'true';
+            if (serverSettings.layout_frosted_glass_intensity) currentSettings.layout_frosted_glass_intensity = serverSettings.layout_frosted_glass_intensity;
             if (serverSettings.layout_grid_cols) currentSettings.layout_grid_cols = serverSettings.layout_grid_cols;
             if (serverSettings.layout_custom_wallpaper) currentSettings.layout_custom_wallpaper = serverSettings.layout_custom_wallpaper;
             if (serverSettings.layout_menu_layout) currentSettings.layout_menu_layout = serverSettings.layout_menu_layout;
             if (serverSettings.layout_random_wallpaper !== undefined) currentSettings.layout_random_wallpaper = serverSettings.layout_random_wallpaper === 'true';
+            if (serverSettings.layout_enable_bg_blur !== undefined) currentSettings.layout_enable_bg_blur = serverSettings.layout_enable_bg_blur === 'true';
+            if (serverSettings.layout_bg_blur_intensity) currentSettings.layout_bg_blur_intensity = serverSettings.layout_bg_blur_intensity;
             if (serverSettings.bing_country !== undefined) currentSettings.bing_country = serverSettings.bing_country;
 
         } else {
@@ -1732,8 +1789,35 @@ document.addEventListener('DOMContentLoaded', () => {
     if (hideCategorySwitch) hideCategorySwitch.checked = !!currentSettings.layout_hide_category;
     if (hideTitleSwitch) hideTitleSwitch.checked = !!currentSettings.layout_hide_title;
     if (hideSubtitleSwitch) hideSubtitleSwitch.checked = !!currentSettings.layout_hide_subtitle;
+    if (frostedGlassSwitch) frostedGlassSwitch.checked = !!currentSettings.layout_enable_frosted_glass;
+    if (frostedGlassIntensityRange) frostedGlassIntensityRange.value = currentSettings.layout_frosted_glass_intensity || '15';
+    if (frostedGlassIntensityValue) frostedGlassIntensityValue.textContent = currentSettings.layout_frosted_glass_intensity || '15';
+    
+    // Toggle Intensity Container visibility
+    const intensityContainer = document.getElementById('frostedGlassIntensityContainer');
+    if (intensityContainer) {
+        if (currentSettings.layout_enable_frosted_glass) {
+            intensityContainer.classList.remove('opacity-50', 'pointer-events-none');
+        } else {
+            intensityContainer.classList.add('opacity-50', 'pointer-events-none');
+        }
+    }
+
     if (customWallpaperInput) customWallpaperInput.value = currentSettings.layout_custom_wallpaper || '';
     if (randomWallpaperSwitch) randomWallpaperSwitch.checked = !!currentSettings.layout_random_wallpaper;
+    if (bgBlurSwitch) bgBlurSwitch.checked = !!currentSettings.layout_enable_bg_blur;
+    if (bgBlurIntensityRange) bgBlurIntensityRange.value = currentSettings.layout_bg_blur_intensity || '0';
+    if (bgBlurIntensityValue) bgBlurIntensityValue.textContent = currentSettings.layout_bg_blur_intensity || '0';
+    
+    const bgBlurContainer = document.getElementById('bgBlurIntensityContainer');
+    if (bgBlurContainer) {
+        if (currentSettings.layout_enable_bg_blur) {
+            bgBlurContainer.classList.remove('opacity-50', 'pointer-events-none');
+        } else {
+            bgBlurContainer.classList.add('opacity-50', 'pointer-events-none');
+        }
+    }
+
     if (bingCountrySelect) bingCountrySelect.value = currentSettings.bing_country || '';
     
     // Grid Cols

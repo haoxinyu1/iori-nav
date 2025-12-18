@@ -23,15 +23,19 @@ export async function onRequestGet({ env }) {
     layout_hide_subtitle: false,
     layout_grid_cols: '4',
     layout_custom_wallpaper: '',
-    layout_menu_layout: 'vertical'
+    layout_menu_layout: 'horizontal',
+    layout_enable_frosted_glass: false,
+    layout_frosted_glass_intensity: '15',
+    layout_enable_bg_blur: false,
+    layout_bg_blur_intensity: '0'
   };
 
   try {
-    const { results } = await env.NAV_DB.prepare("SELECT key, value FROM settings WHERE key IN ('layout_hide_desc', 'layout_hide_links', 'layout_hide_category', 'layout_hide_title', 'layout_hide_subtitle', 'layout_grid_cols', 'layout_custom_wallpaper', 'layout_menu_layout')").all();
+    const { results } = await env.NAV_DB.prepare("SELECT key, value FROM settings WHERE key IN ('layout_hide_desc', 'layout_hide_links', 'layout_hide_category', 'layout_hide_title', 'layout_hide_subtitle', 'layout_grid_cols', 'layout_custom_wallpaper', 'layout_menu_layout', 'layout_enable_frosted_glass', 'layout_frosted_glass_intensity', 'layout_enable_bg_blur', 'layout_bg_blur_intensity')").all();
     if (results) {
       results.forEach(row => {
         // Store as boolean where appropriate, string for others
-        if (row.key === 'layout_grid_cols' || row.key === 'layout_custom_wallpaper' || row.key === 'layout_menu_layout') {
+        if (row.key === 'layout_grid_cols' || row.key === 'layout_custom_wallpaper' || row.key === 'layout_menu_layout' || row.key === 'layout_frosted_glass_intensity' || row.key === 'layout_bg_blur_intensity') {
             layoutSettings[row.key] = row.value;
         } else {
             layoutSettings[row.key] = row.value === 'true';

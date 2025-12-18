@@ -227,7 +227,7 @@
                          <div class="flex gap-4">
                              <label class="inline-flex items-center cursor-pointer">
                                  <input type="radio" name="menuLayout" value="vertical" class="form-radio text-primary-600">
-                                 <span class="ml-2">竖向 (默认)</span>
+                                 <span class="ml-2">竖向</span>
                              </label>
                              <label class="inline-flex items-center cursor-pointer">
                                  <input type="radio" name="menuLayout" value="horizontal" class="form-radio text-primary-600">
@@ -292,6 +292,19 @@
                         </label>
                     </div>
 
+                    <div class="flex items-center justify-between p-2 hover:bg-gray-50 rounded">
+                        <label for="frostedGlassSwitch" class="cursor-pointer select-none text-gray-700 font-medium">卡片毛玻璃效果</label>
+                        <label class="switch">
+                            <input type="checkbox" id="frostedGlassSwitch">
+                            <span class="slider round"></span>
+                        </label>
+                    </div>
+
+                    <div class="p-2 hover:bg-gray-50 rounded" id="frostedGlassIntensityContainer">
+                         <label for="frostedGlassIntensity" class="block text-gray-700 font-medium mb-1">毛玻璃模糊程度: <span id="frostedGlassIntensityValue">15</span>px</label>
+                         <input type="range" id="frostedGlassIntensity" min="0" max="50" step="1" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                    </div>
+
                     
                 </div>
             </div>
@@ -313,6 +326,19 @@
                         </label>
                     </div>
                     <p class="text-xs text-gray-500 mb-4 px-2">开启后，每次刷新首页将按顺序轮流显示下方 API 获取的 7 张壁纸。</p>
+
+                    <div class="flex items-center justify-between p-2 hover:bg-gray-50 rounded">
+                        <label for="bgBlurSwitch" class="cursor-pointer select-none text-gray-700 font-medium">背景虚化</label>
+                        <label class="switch">
+                            <input type="checkbox" id="bgBlurSwitch">
+                            <span class="slider round"></span>
+                        </label>
+                    </div>
+
+                    <div class="p-2 hover:bg-gray-50 rounded" id="bgBlurIntensityContainer">
+                         <label for="bgBlurIntensity" class="block text-gray-700 font-medium mb-1">背景虚化程度: <span id="bgBlurIntensityValue">0</span>px</label>
+                         <input type="range" id="bgBlurIntensity" min="0" max="50" step="1" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                    </div>
 
                     <div class="p-2 rounded bg-gray-50 border border-gray-100 mt-4">
                          <div class="flex items-center justify-between mb-2">

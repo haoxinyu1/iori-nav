@@ -54,10 +54,17 @@ export async function onRequest(context) {
   const totalSites = sites.length;
   const categoryMinSort = new Map();
   const categorySet = new Set();
+  const categoryIdMap = new Map();
 
   sites.forEach((site) => {
     const categoryName = (site.catelog || '').trim() || '未分类';
     categorySet.add(categoryName);
+    
+    // Capture ID
+    if (site.catelog_id && !categoryIdMap.has(categoryName)) {
+        categoryIdMap.set(categoryName, site.catelog_id);
+    }
+
     const rawSort = Number(site.sort_order);
     const normalized = Number.isFinite(rawSort) ? rawSort : 9999;
     if (!categoryMinSort.has(categoryName) || normalized < categoryMinSort.get(categoryName)) {
@@ -82,7 +89,7 @@ export async function onRequest(context) {
   const catalogsWithMeta = Array.from(categorySet).map((name) => {
     const fallbackSort = categoryMinSort.has(name) ? normalizeSortOrder(categoryMinSort.get(name)) : 9999;
     const order = categoryOrderMap.has(name) ? categoryOrderMap.get(name) : fallbackSort;
-    return { name, order, fallback: fallbackSort };
+    return { name, order, fallback: fallbackSort, id: categoryIdMap.get(name) };
   });
 
   catalogsWithMeta.sort((a, b) => {
@@ -91,7 +98,7 @@ export async function onRequest(context) {
     return a.name.localeCompare(b.name, 'zh-Hans-CN', { sensitivity: 'base' });
   });
 
-  const catalogs = catalogsWithMeta.map(item => item.name);
+  const catalogs = catalogsWithMeta.map(item => item.name); // Keep for legacy usage
 
   // 3. 筛选当前分类的站点
   let requestedCatalog = (catalog || '').trim();
@@ -127,12 +134,16 @@ export async function onRequest(context) {
   let layoutHideSubtitle = false;
   let layoutGridCols = '4';
   let layoutCustomWallpaper = '';
-  let layoutMenuLayout = 'vertical';
+  let layoutMenuLayout = 'horizontal';
   let layoutRandomWallpaper = false;
   let bingCountry = '';
+  let layoutEnableFrostedGlass = false;
+  let layoutFrostedGlassIntensity = '15';
+  let layoutEnableBgBlur = false;
+  let layoutBgBlurIntensity = '0';
 
   try {
-    const { results } = await env.NAV_DB.prepare("SELECT key, value FROM settings WHERE key IN ('layout_hide_desc', 'layout_hide_links', 'layout_hide_category', 'layout_hide_title', 'layout_hide_subtitle', 'layout_grid_cols', 'layout_custom_wallpaper', 'layout_menu_layout', 'layout_random_wallpaper', 'bing_country')").all();
+    const { results } = await env.NAV_DB.prepare("SELECT key, value FROM settings WHERE key IN ('layout_hide_desc', 'layout_hide_links', 'layout_hide_category', 'layout_hide_title', 'layout_hide_subtitle', 'layout_grid_cols', 'layout_custom_wallpaper', 'layout_menu_layout', 'layout_random_wallpaper', 'bing_country', 'layout_enable_frosted_glass', 'layout_frosted_glass_intensity', 'layout_enable_bg_blur', 'layout_bg_blur_intensity')").all();
     if (results) {
       results.forEach(row => {
         if (row.key === 'layout_hide_desc') layoutHideDesc = row.value === 'true';
@@ -145,6 +156,10 @@ export async function onRequest(context) {
         if (row.key === 'layout_menu_layout') layoutMenuLayout = row.value;
         if (row.key === 'layout_random_wallpaper') layoutRandomWallpaper = row.value === 'true';
         if (row.key === 'bing_country') bingCountry = row.value;
+        if (row.key === 'layout_enable_frosted_glass') layoutEnableFrostedGlass = row.value === 'true';
+        if (row.key === 'layout_frosted_glass_intensity') layoutFrostedGlassIntensity = row.value;
+        if (row.key === 'layout_enable_bg_blur') layoutEnableBgBlur = row.value === 'true';
+        if (row.key === 'layout_bg_blur_intensity') layoutBgBlurIntensity = row.value;
       });
     }
   } catch (e) {
@@ -224,14 +239,16 @@ export async function onRequest(context) {
 
   // 4. 生成动态内容
   // Vertical Menu Links (Sidebar)
-  const catalogLinkMarkup = catalogs.map((cat) => {
+  const catalogLinkMarkup = catalogsWithMeta.map((catObj) => {
+    const cat = catObj.name;
+    const catId = catObj.id || '';
     const safeCat = escapeHTML(cat);
     const encodedCat = encodeURIComponent(cat);
     const isActive = catalogExists && cat === currentCatalog;
     const linkClass = isActive ? 'bg-secondary-100 text-primary-700' : 'hover:bg-gray-100';
     const iconClass = isActive ? 'text-primary-600' : 'text-gray-400';
     return `
-      <a href="?catalog=${encodedCat}" class="flex items-center px-3 py-2 rounded-lg ${linkClass} w-full">
+      <a href="?catalog=${encodedCat}" data-id="${catId}" class="flex items-center px-3 py-2 rounded-lg ${linkClass} w-full">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 ${iconClass}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
         </svg>
@@ -241,14 +258,16 @@ export async function onRequest(context) {
   }).join('');
   
   // Horizontal Menu Links (Top)
-  const horizontalCatalogMarkup = catalogs.map((cat) => {
+  const horizontalCatalogMarkup = catalogsWithMeta.map((catObj) => {
+    const cat = catObj.name;
+    const catId = catObj.id || '';
     const safeCat = escapeHTML(cat);
     const encodedCat = encodeURIComponent(cat);
     const isActive = catalogExists && cat === currentCatalog;
     const linkClass = isActive ? hLinkActive : hLinkInactive;
     
     return `
-      <a href="?catalog=${encodedCat}" class="menu-item inline-flex items-center px-4 py-2 rounded-full text-sm transition-all duration-200 whitespace-nowrap ${linkClass}">
+      <a href="?catalog=${encodedCat}" data-id="${catId}" class="menu-item inline-flex items-center px-4 py-2 rounded-full text-sm transition-all duration-200 whitespace-nowrap ${linkClass}">
         ${safeCat}
       </a>
     `;
@@ -298,9 +317,14 @@ export async function onRequest(context) {
                 <span class="inline-flex items-center px-2 py-0.5 mt-1 rounded-full text-xs font-medium bg-secondary-100 text-primary-700">
                   ${safeCatalog}
                 </span>`;
+    
+    const frostedClass = layoutEnableFrostedGlass ? 'frosted-glass-effect' : '';
+    const baseCardClass = layoutEnableFrostedGlass 
+        ? 'site-card group rounded-xl overflow-hidden transition-all' 
+        : 'site-card group bg-white border border-primary-100/60 rounded-xl shadow-sm overflow-hidden';
 
     return `
-      <div class="site-card group bg-white border border-primary-100/60 rounded-xl shadow-sm overflow-hidden" data-id="${site.id}" data-name="${safeDataName}" data-url="${dataUrlAttr}" data-catalog="${safeDataCatalog}">
+      <div class="${baseCardClass} ${frostedClass}" data-id="${site.id}" data-name="${safeDataName}" data-url="${dataUrlAttr}" data-catalog="${safeDataCatalog}">
         <div class="p-5">
           <a href="${hrefValue}" ${hasValidUrl ? 'target="_blank" rel="noopener noreferrer"' : ''} class="block">
             <div class="flex items-start">
@@ -462,7 +486,17 @@ export async function onRequest(context) {
   // Custom Wallpaper Logic
   const safeWallpaperUrl = sanitizeUrl(layoutCustomWallpaper);
   if (safeWallpaperUrl) {
-      html = html.replace('<body class="bg-secondary-50 font-sans text-gray-800">', `<body class="bg-secondary-50 font-sans text-gray-800" style="background-image: url('${safeWallpaperUrl}'); background-size: cover; background-attachment: fixed; background-position: center;">`);
+      const blurStyle = layoutEnableBgBlur ? `filter: blur(${layoutBgBlurIntensity}px);` : '';
+      // We use a pseudo-element like div for background to allow blur without affecting content
+      const bgLayerHtml = `<div style="position: fixed; inset: 0; z-index: -10; background-image: url('${safeWallpaperUrl}'); background-size: cover; background-attachment: fixed; background-position: center; ${blurStyle}"></div>`;
+      
+      html = html.replace('<body class="bg-secondary-50 font-sans text-gray-800">', `<body class="bg-secondary-50 font-sans text-gray-800 relative">${bgLayerHtml}`);
+  }
+  
+  // Inject Frosted Glass CSS Variable
+  if (layoutEnableFrostedGlass) {
+      const cssVarInjection = `<style>:root { --frosted-glass-blur: ${layoutFrostedGlassIntensity}px; }</style>`;
+      html = html.replace('</head>', `${cssVarInjection}</head>`);
   }
 
   html = html
