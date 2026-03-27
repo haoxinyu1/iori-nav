@@ -1,6 +1,7 @@
 // functions/_middleware.js
 
 import { ensureSchemaReady } from './lib/schema-migration';
+import { HOME_CACHE_VERSION } from './constants';
 
 export function normalizeSortOrder(val) {
   const num = Number(val);
@@ -43,7 +44,9 @@ export async function clearHomeCache(env) {
   try {
     await Promise.all([
       env.NAV_AUTH.delete('home_html_public'),
-      env.NAV_AUTH.delete('home_html_private')
+      env.NAV_AUTH.delete('home_html_private'),
+      env.NAV_AUTH.delete(`home_html_public_${HOME_CACHE_VERSION}`),
+      env.NAV_AUTH.delete(`home_html_private_${HOME_CACHE_VERSION}`)
     ]);
   } catch (e) {
     console.error('Failed to clear home cache:', e);

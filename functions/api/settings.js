@@ -1,5 +1,6 @@
 
 import { isAdminAuthenticated, errorResponse, jsonResponse } from '../_middleware';
+import { HOME_CACHE_VERSION } from '../constants';
 
 export async function onRequestGet(context) {
   const { request, env } = context;
@@ -99,6 +100,8 @@ export async function onRequestPost(context) {
         env.NAV_AUTH.delete('settings_cache'),
         env.NAV_AUTH.delete('home_html_private'),
         env.NAV_AUTH.delete('home_html_public'),
+        env.NAV_AUTH.delete(`home_html_private_${HOME_CACHE_VERSION}`),
+        env.NAV_AUTH.delete(`home_html_public_${HOME_CACHE_VERSION}`),
       ]);
     } catch (e) {
       console.warn('Failed to clear caches:', e);

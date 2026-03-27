@@ -1,6 +1,6 @@
 // functions/index.js
-import { isAdminAuthenticated } from './_middleware';
-import { FONT_MAP } from './constants';
+import { isAdminAuthenticated, clearHomeCache } from './_middleware';
+import { FONT_MAP, HOME_CACHE_VERSION } from './constants';
 import { escapeHTML, sanitizeUrl, normalizeSortOrder, getStyleStr } from './lib/utils';
 import { getSettingsKeys, parseSettings } from './lib/settings-parser';
 import { renderHorizontalMenu, renderVerticalMenu } from './lib/menu-renderer';
@@ -33,19 +33,18 @@ export async function onRequest(context) {
   // === 1. 缓存检查 ===
   const url = new URL(request.url);
   const isHomePage = url.pathname === '/' && !url.search;
+  const homeCacheKey = isAuthenticated ? `home_html_private_${HOME_CACHE_VERSION}` : `home_html_public_${HOME_CACHE_VERSION}`;
   const cookies = request.headers.get('Cookie') || '';
   const hasStaleCookie = cookies.includes('iori_cache_stale=1');
   let shouldClearCookie = false;
 
   if (isHomePage) {
     if (isAuthenticated && hasStaleCookie) {
-      await env.NAV_AUTH.delete('home_html_private');
-      await env.NAV_AUTH.delete('home_html_public');
+      await clearHomeCache(env);
       shouldClearCookie = true;
     } else {
-      const cacheKey = isAuthenticated ? 'home_html_private' : 'home_html_public';
       try {
-        const cachedHtml = await env.NAV_AUTH.get(cacheKey);
+        const cachedHtml = await env.NAV_AUTH.get(homeCacheKey);
         if (cachedHtml) {
           return new Response(cachedHtml, {
             headers: { 'Content-Type': 'text/html; charset=utf-8', 'X-Cache': 'HIT' }
@@ -226,7 +225,7 @@ export async function onRequest(context) {
         <label class="search-engine-option active" data-engine="local"><span>站内</span></label>
         <label class="search-engine-option" data-engine="google"><span>Google</span></label>
         <label class="search-engine-option" data-engine="baidu"><span>Baidu</span></label>
-        <label class="search-engine-option" data-engine="bing"><span>Bing</span></label>
+        <label class="search-engine-option" data-engine="github"><span>GitHub</span></label>
     </div>` : '';
 
   // === 14. Header HTML ===
@@ -475,8 +474,7 @@ export async function onRequest(context) {
   }
 
   if (isHomePage) {
-    const cacheKey = isAuthenticated ? 'home_html_private' : 'home_html_public';
-    context.waitUntil(env.NAV_AUTH.put(cacheKey, html, { expirationTtl: 2592000 }));
+    context.waitUntil(env.NAV_AUTH.put(homeCacheKey, html, { expirationTtl: 2592000 }));
   }
 
   return response;
