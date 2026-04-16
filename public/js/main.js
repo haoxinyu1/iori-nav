@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', function () {
   const initialCards = document.querySelectorAll('.site-card.card-anim-enter');
   const sitesGrid = document.getElementById('sitesGrid');
   initialCards.forEach((card, index) => {
-    const delay = Math.min(index, 20) * 30;
+    const delay = Math.min(index, 12) * 20;
     if (delay > 0) card.style.animationDelay = `${delay}ms`;
     card.addEventListener('animationend', () => {
       card.classList.remove('card-anim-enter');
@@ -695,7 +695,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
       const card = document.createElement('div');
       card.className = `${baseCardClass} ${frostedClass} ${cardStyleClass} card-anim-enter`;
-      const delay = Math.min(index, 20) * 30;
+      const delay = Math.min(index, 12) * 20;
       if (delay > 0) {
         card.style.animationDelay = `${delay}ms`;
       }
