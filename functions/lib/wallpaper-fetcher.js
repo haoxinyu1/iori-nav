@@ -50,7 +50,7 @@ async function fetch360Wallpaper(cid, currentIndex) {
 async function fetchBingWallpaper(bingCountry, currentIndex) {
     const bingUrl = bingCountry === 'spotlight'
         ? 'https://peapix.com/spotlight/feed?n=7'
-        : `https://peapix.com/bing/feed?n=7&country=${bingCountry}`;
+        : `https://peapix.com/bing/feed?n=7&country=${encodeURIComponent(bingCountry)}`;
 
     const res = await fetchWithTimeout(bingUrl);
     if (!res.ok) return null;
