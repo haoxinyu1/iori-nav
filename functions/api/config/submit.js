@@ -29,13 +29,10 @@ export async function onRequestPost(context) {
     }
 
     const categoryResult = await env.NAV_DB.prepare('SELECT catelog, is_private FROM category WHERE id = ?').bind(catelog_id).first();
-    const catelogName = categoryResult ? categoryResult.catelog : 'Unknown';
-    // If category is private, we might want to flag it? But pending_sites doesn't have is_private.
-    // However, since public users can't see private categories (filtered in index.js), they likely can't submit to one.
-    // If they manually forge a request, well, it goes to pending.
-    // When admin approves, admin will decide.
-    // So maybe submit.js doesn't need changes if pending_sites doesn't have is_private.
-    // But let's check functions/api/config/index.js which Admin uses.
+    if (!categoryResult || categoryResult.is_private === 1) {
+      return errorResponse('Category not found', 400);
+    }
+    const catelogName = categoryResult.catelog;
 
     await env.NAV_DB.prepare(`
       INSERT INTO pending_sites (name, url, logo, desc, catelog_id, catelog_name)

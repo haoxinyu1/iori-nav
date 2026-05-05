@@ -1,5 +1,5 @@
 // functions/api/pending/[id].js
-import { isAdminAuthenticated, errorResponse, jsonResponse, markHomeCacheDirty } from '../../_middleware';
+import { isAdminAuthenticated, errorResponse, jsonResponse, markHomeCacheDirty, normalizeSortOrder } from '../../_middleware';
 import { buildFaviconUrl } from '../../lib/utils';
 
 export async function onRequestPut(context) {
@@ -18,17 +18,48 @@ export async function onRequestPut(context) {
     }
 
     const config = results[0];
-    let { logo, url } = config;
+    let updateData = {};
+    const contentType = request.headers.get('Content-Type') || '';
+    if (contentType.includes('application/json')) {
+      try {
+        updateData = await request.json();
+      } catch {
+        updateData = {};
+      }
+    }
+    if (!updateData || typeof updateData !== 'object' || Array.isArray(updateData)) {
+      updateData = {};
+    }
+
+    const hasField = (field) => Object.prototype.hasOwnProperty.call(updateData, field);
+    const getField = (field, fallback) => hasField(field) ? updateData[field] : fallback;
+    const catelogId = hasField('catelog_id')
+      ? updateData.catelog_id
+      : getField('catelogId', config.catelog_id);
+
+    const sanitizedName = String(getField('name', config.name) || '').trim();
+    const sanitizedUrl = String(getField('url', config.url) || '').trim();
+    let sanitizedLogo = String(getField('logo', config.logo) || '').trim() || null;
+    const sanitizedDesc = String(getField('desc', config.desc) || '').trim() || null;
+    const sortOrderValue = hasField('sort_order') ? normalizeSortOrder(updateData.sort_order) : 9999;
+    const isPrivateValue = getField('is_private', false) ? 1 : 0;
+
+    if (!sanitizedName || !sanitizedUrl || !catelogId) {
+      return errorResponse('Name, URL and Catelog are required', 400);
+    }
+
     const iconAPI = env.ICON_API || 'https://faviconsnap.com/api/favicon?url=';
-    const sanitizedLogo = buildFaviconUrl(url, logo, iconAPI);
-    const category = await env.NAV_DB.prepare('SELECT catelog, is_private FROM category WHERE id = ?').bind(config.catelog_id).first();
-    const catelogName = category?.catelog || config.catelog_name || 'Unknown';
-    const finalIsPrivate = category?.is_private ? 1 : 0;
+    sanitizedLogo = buildFaviconUrl(sanitizedUrl, sanitizedLogo, iconAPI);
+    const category = await env.NAV_DB.prepare('SELECT catelog, is_private FROM category WHERE id = ?').bind(catelogId).first();
+    if (!category) {
+      return errorResponse('Category not found.', 400);
+    }
+    const finalIsPrivate = category.is_private === 1 ? 1 : isPrivateValue;
 
     await env.NAV_DB.prepare(`
       INSERT INTO sites (name, url, logo, desc, catelog_id, catelog_name, sort_order, is_private)
-      VALUES (?, ?, ?, ?, ?, ?, 9999, ?)
-    `).bind(config.name, config.url, sanitizedLogo, config.desc, config.catelog_id, catelogName, finalIsPrivate).run();
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(sanitizedName, sanitizedUrl, sanitizedLogo, sanitizedDesc, catelogId, category.catelog, sortOrderValue, finalIsPrivate).run();
     
     await env.NAV_DB.prepare('DELETE FROM pending_sites WHERE id = ?').bind(id).run();
 
