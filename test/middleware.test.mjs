@@ -85,6 +85,19 @@ test('validateCsrfToken requires matching X-CSRF-Token when stored token exists'
   assert.deepEqual(await validateCsrfToken(invalidRequest, env), { valid: false });
 });
 
+test('validateCsrfToken rejects sessions without a stored CSRF token', async () => {
+  const env = { NAV_AUTH: createKv({ session_session: '1' }) };
+  const request = new Request('https://example.com/api/config', {
+    method: 'POST',
+    headers: {
+      Cookie: 'admin_session=session',
+      'X-CSRF-Token': 'csrf-value',
+    },
+  });
+
+  assert.deepEqual(await validateCsrfToken(request, env), { valid: false });
+});
+
 test('validateOrigin only accepts same-host Origin or Referer headers', () => {
   assert.equal(validateOrigin(new Request('https://example.com/api/config/submit', {
     headers: { Origin: 'https://example.com' },

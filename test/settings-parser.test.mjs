@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { getSettingsKeys, parseSettings } from '../functions/lib/settings-parser.js';
+import { getSettingsKeys, normalizeSettingValueForStorage, parseSettings } from '../functions/lib/settings-parser.js';
 
 test('parseSettings applies documented defaults', () => {
   const settings = parseSettings([]);
@@ -35,4 +35,14 @@ test('getSettingsKeys matches parseable setting fields', () => {
   assert.ok(keys.includes('home_default_category'));
   assert.ok(keys.includes('card_desc_color'));
   assert.equal(new Set(keys).size, keys.length);
+});
+
+test('normalizeSettingValueForStorage validates style and enum settings', () => {
+  assert.deepEqual(normalizeSettingValueForStorage('home_title_size', '36'), { ok: true, value: '36' });
+  assert.deepEqual(normalizeSettingValueForStorage('home_title_color', '#ffffff'), { ok: true, value: '#ffffff' });
+  assert.deepEqual(normalizeSettingValueForStorage('card_desc_color', 'undefined'), { ok: true, value: '' });
+  assert.deepEqual(normalizeSettingValueForStorage('card_desc_color', 'null'), { ok: true, value: '' });
+  assert.equal(normalizeSettingValueForStorage('home_title_color', '#fff;position:fixed').ok, false);
+  assert.equal(normalizeSettingValueForStorage('layout_grid_cols', '9').ok, false);
+  assert.equal(normalizeSettingValueForStorage('layout_custom_wallpaper', 'javascript:alert(1)').ok, false);
 });

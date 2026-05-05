@@ -1,5 +1,5 @@
 // functions/index.js
-import { isAdminAuthenticated, getHomeCacheKey, isHomeCacheDirty, clearHomeCacheDirty, markHomeCacheDirty, getHomeCacheDirtyValue } from './_middleware';
+import { isAdminAuthenticated, getHomeCacheKey, clearHomeCacheDirty, markHomeCacheDirty, getHomeCacheDirtyValue } from './_middleware';
 import { FONT_MAP, HOME_CACHE_TTL } from './constants';
 import { escapeHTML, sanitizeUrl, normalizeSortOrder, getStyleStr } from './lib/utils';
 import { getSettingsKeys, parseSettings } from './lib/settings-parser';

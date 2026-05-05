@@ -1,5 +1,6 @@
 // functions/api/config/submit.js
 import { isSubmissionEnabled, errorResponse, jsonResponse, checkRateLimit } from '../../_middleware';
+import { normalizeUrlForStorage } from '../../lib/utils';
 
 export async function onRequestPost(context) {
   const { request, env } = context;
@@ -20,12 +21,16 @@ export async function onRequestPost(context) {
     const { name, url, logo, desc, catelog_id } = config;
 
     const sanitizedName = (name || '').trim();
-    const sanitizedUrl = (url || '').trim();
+    const rawUrl = (url || '').trim();
+    const sanitizedUrl = normalizeUrlForStorage(rawUrl);
     const sanitizedLogo = (logo || '').trim() || null;
     const sanitizedDesc = (desc || '').trim() || null;
 
-    if (!sanitizedName || !sanitizedUrl || !catelog_id) {
+    if (!sanitizedName || !rawUrl || !catelog_id) {
       return errorResponse('Name, URL and Category are required', 400);
+    }
+    if (!sanitizedUrl) {
+      return errorResponse('URL must be a valid http or https URL', 400);
     }
 
     const categoryResult = await env.NAV_DB.prepare('SELECT catelog, is_private FROM category WHERE id = ?').bind(catelog_id).first();

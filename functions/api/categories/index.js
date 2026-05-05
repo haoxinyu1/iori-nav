@@ -1,5 +1,6 @@
 // functions/api/categories/index.js
 import { isAdminAuthenticated, isSubmissionEnabled, errorResponse, jsonResponse } from '../../_middleware';
+import { parsePagination } from '../../lib/utils';
 
 export async function onRequestGet(context) {
   const { request, env } = context;
@@ -12,15 +13,9 @@ export async function onRequestGet(context) {
     return errorResponse('Unauthorized', 401);
   }
 
-  const requestedPage = parseInt(url.searchParams.get('page') || '1', 10);
-  const requestedPageSize = parseInt(url.searchParams.get('pageSize') || '10', 10);
   const shouldShowPublicOnly = isPublicScope || !isAuthenticated;
   const maxPageSize = shouldShowPublicOnly ? 1000 : 10000;
-  const page = Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1;
-  const pageSize = Number.isFinite(requestedPageSize) && requestedPageSize > 0
-    ? Math.min(requestedPageSize, maxPageSize)
-    : 10;
-  const offset = (page - 1) * pageSize;
+  const { page, pageSize, offset } = parsePagination(url.searchParams, { maxPageSize });
 
   try {
     const categoryFilter = shouldShowPublicOnly ? 'WHERE c.is_private = 0' : '';

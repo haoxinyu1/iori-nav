@@ -26,6 +26,9 @@ function createDb({ category }) {
               if (sql.includes('SELECT id, is_private FROM sites')) {
                 return { id: 1, is_private: 0 };
               }
+              if (sql.includes('SELECT id FROM sites WHERE url IN')) {
+                return null;
+              }
               if (sql.includes('SELECT catelog, is_private FROM category')) {
                 return category;
               }
@@ -66,4 +69,31 @@ test('PUT /api/config/:id rejects updates to a missing category', async () => {
   assert.equal(response.status, 400);
   assert.equal(body.code, 400);
   assert.match(body.message, /Category not found/);
+});
+
+test('PUT /api/config/:id rejects unsafe bookmark URLs before updating', async () => {
+  const request = new Request('https://example.com/api/config/1', {
+    method: 'PUT',
+    headers: {
+      Cookie: 'admin_session=token',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      name: 'Example',
+      url: 'javascript:alert(1)',
+      catelog_id: 1,
+      is_private: false,
+    }),
+  });
+  const env = {
+    NAV_AUTH: createKv({ session_token: '1' }),
+    NAV_DB: createDb({ category: { catelog: 'Default', is_private: 0 } }),
+  };
+
+  const response = await onRequestPut({ request, env, params: { id: '1' } });
+  const body = await response.json();
+
+  assert.equal(response.status, 400);
+  assert.equal(body.code, 400);
+  assert.match(body.message, /valid http or https URL/);
 });

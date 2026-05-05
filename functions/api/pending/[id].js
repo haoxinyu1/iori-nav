@@ -1,6 +1,6 @@
 // functions/api/pending/[id].js
 import { isAdminAuthenticated, errorResponse, jsonResponse, markHomeCacheDirty, normalizeSortOrder } from '../../_middleware';
-import { buildFaviconUrl } from '../../lib/utils';
+import { buildFaviconUrl, getUrlMatchCandidates, normalizeUrlForStorage } from '../../lib/utils';
 
 export async function onRequestPut(context) {
   const { request, env, params } = context;
@@ -38,14 +38,27 @@ export async function onRequestPut(context) {
       : getField('catelogId', config.catelog_id);
 
     const sanitizedName = String(getField('name', config.name) || '').trim();
-    const sanitizedUrl = String(getField('url', config.url) || '').trim();
+    const rawUrl = String(getField('url', config.url) || '').trim();
+    const sanitizedUrl = normalizeUrlForStorage(rawUrl);
     let sanitizedLogo = String(getField('logo', config.logo) || '').trim() || null;
     const sanitizedDesc = String(getField('desc', config.desc) || '').trim() || null;
     const sortOrderValue = hasField('sort_order') ? normalizeSortOrder(updateData.sort_order) : 9999;
     const isPrivateValue = getField('is_private', false) ? 1 : 0;
 
-    if (!sanitizedName || !sanitizedUrl || !catelogId) {
+    if (!sanitizedName || !rawUrl || !catelogId) {
       return errorResponse('Name, URL and Catelog are required', 400);
+    }
+    if (!sanitizedUrl) {
+      return errorResponse('URL must be a valid http or https URL', 400);
+    }
+
+    const urlCandidates = getUrlMatchCandidates(rawUrl);
+    const placeholders = urlCandidates.map(() => '?').join(',');
+    const duplicate = await env.NAV_DB.prepare(`SELECT id FROM sites WHERE url IN (${placeholders})`)
+      .bind(...urlCandidates)
+      .first();
+    if (duplicate) {
+      return errorResponse('该 URL 已存在，请勿重复添加', 409);
     }
 
     const iconAPI = env.ICON_API || 'https://faviconsnap.com/api/favicon?url=';
